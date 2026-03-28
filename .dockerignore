@@ -1,0 +1,10 @@
+/target
+/web/node_modules
+/web/dist
+/.git
+/.env
+/.env.*
+/deploy/.env
+/web/*.tsbuildinfo
+/web/vite.config.js
+/web/vite.config.d.ts
