@@ -8,8 +8,9 @@ use axum_extra::extract::CookieJar;
 
 use crate::{
     auth,
-    error::AppResult,
-    models::api::{LoginRequest, SessionResponse},
+    error::{AppError, AppResult},
+    models::api::{LoginRequest, SessionResponse, UpdateProfileRequest},
+    routes::parties,
     state::AppState,
 };
 
@@ -18,6 +19,7 @@ pub fn router() -> Router<AppState> {
         .route("/login", post(login))
         .route("/logout", post(logout))
         .route("/me", get(me))
+        .route("/profile", post(update_profile))
 }
 
 async fn login(
@@ -52,6 +54,55 @@ async fn logout(
 
 async fn me(State(state): State<AppState>, jar: CookieJar) -> AppResult<Json<SessionResponse>> {
     let user = auth::require_user_from_jar(&state, &jar).await?;
+
+    Ok(Json(SessionResponse {
+        user: user.summary(),
+    }))
+}
+
+async fn update_profile(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Json(request): Json<UpdateProfileRequest>,
+) -> AppResult<Json<SessionResponse>> {
+    let current_user = auth::require_user_from_jar(&state, &jar).await?;
+    auth::validate_username(&request.username)?;
+    let next_username = auth::normalize_username(&request.username);
+
+    if next_username != current_user.username {
+        let username_taken = sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS(
+                SELECT 1
+                FROM users
+                WHERE username = $1 AND id <> $2
+            )
+            "#,
+        )
+        .bind(&next_username)
+        .bind(current_user.id)
+        .fetch_one(&state.db)
+        .await?;
+
+        if username_taken {
+            return Err(AppError::conflict("that username is already taken"));
+        }
+    }
+
+    let user = sqlx::query_as::<_, crate::models::db::UserRecord>(
+        r#"
+        UPDATE users
+        SET username = $2
+        WHERE id = $1
+        RETURNING id, username, display_name, role
+        "#,
+    )
+    .bind(current_user.id)
+    .bind(next_username)
+    .fetch_one(&state.db)
+    .await?;
+
+    parties::emit_presence_for_user(&state, &user, None).await;
 
     Ok(Json(SessionResponse {
         user: user.summary(),

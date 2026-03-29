@@ -98,6 +98,11 @@ pub struct LoginRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateProfileRequest {
+    pub username: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RedeemInviteRequest {
     pub code: String,
     pub username: String,

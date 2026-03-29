@@ -83,6 +83,13 @@ export function logout() {
   return request<void>("/auth/logout", { method: "POST" });
 }
 
+export function updateProfile(input: { username: string }) {
+  return request<SessionResponse>("/auth/profile", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export function redeemInvite(input: {
   code: string;
   username: string;

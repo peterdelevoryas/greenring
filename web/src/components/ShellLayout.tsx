@@ -37,7 +37,7 @@ export function ShellLayout({
 
         <nav className="main-nav">
           <NavItem href="/">Parties</NavItem>
-          {currentUser.role === "owner" ? <NavItem href="/settings">Invites</NavItem> : null}
+          <NavItem href="/settings">Settings</NavItem>
         </nav>
 
         <div className="status-card">
