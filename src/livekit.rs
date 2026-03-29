@@ -63,7 +63,7 @@ mod tests {
             bind_addr: "127.0.0.1:3000".parse().unwrap(),
             database_url: "postgres://ignored".to_string(),
             cors_origin: "http://localhost:5173".to_string(),
-            session_cookie_name: "xpc_session".to_string(),
+            session_cookie_name: "greenring_session".to_string(),
             session_cookie_secure: false,
             session_ttl_hours: 24,
             livekit_api_key: "test-key".to_string(),

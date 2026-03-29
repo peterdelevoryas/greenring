@@ -23,12 +23,12 @@ impl Config {
             .context("APP_BIND_ADDR must be a valid socket address")?;
 
         let database_url = env::var("DATABASE_URL")
-            .context("DATABASE_URL is required, e.g. postgres://postgres:postgres@localhost:5432/xbox_party_chat")?;
+            .context("DATABASE_URL is required, e.g. postgres://postgres:postgres@localhost:5432/greenring")?;
 
         let cors_origin =
             env::var("APP_CORS_ORIGIN").unwrap_or_else(|_| "http://localhost:5173".to_string());
         let session_cookie_name =
-            env::var("SESSION_COOKIE_NAME").unwrap_or_else(|_| "xpc_session".to_string());
+            env::var("SESSION_COOKIE_NAME").unwrap_or_else(|_| "greenring_session".to_string());
         let session_cookie_secure = read_bool("SESSION_COOKIE_SECURE", false)?;
         let session_ttl_hours = read_i64("SESSION_TTL_HOURS", 24 * 30)?;
         if session_ttl_hours <= 0 {

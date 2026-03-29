@@ -16,8 +16,8 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/xbox-party-chat /usr/local/bin/xbox-party-chat
+COPY --from=builder /app/target/release/greenring /usr/local/bin/greenring
 
 EXPOSE 3000
 
-CMD ["xbox-party-chat", "serve"]
+CMD ["greenring", "serve"]

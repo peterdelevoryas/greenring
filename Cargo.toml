@@ -1,5 +1,5 @@
 [package]
-name = "xbox-party-chat"
+name = "greenring"
 version = "0.1.0"
 edition = "2024"
 description = "Prototype Rust application for Xbox party chat tooling"

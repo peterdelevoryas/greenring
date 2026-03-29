@@ -1,4 +1,4 @@
-# Xbox Party Chat
+# Green Ring
 
 Private, invite-only hangout app for a close friend group, built around the 2008 Xbox Party Chat aesthetic.
 
@@ -10,10 +10,10 @@ Private, invite-only hangout app for a close friend group, built around the 2008
 
 ## Repo layout
 
-- [src/main.rs](/home/pdel/code/xbox-party-chat/src/main.rs): backend entrypoint and CLI.
-- [migrations/0001_initial.sql](/home/pdel/code/xbox-party-chat/migrations/0001_initial.sql): initial Postgres schema.
-- [web/src/App.tsx](/home/pdel/code/xbox-party-chat/web/src/App.tsx): frontend app shell and route split.
-- [deploy/docker-compose.yml](/home/pdel/code/xbox-party-chat/deploy/docker-compose.yml): single-host deployment stack.
+- [src/main.rs](src/main.rs): backend entrypoint and CLI.
+- [migrations/0001_initial.sql](migrations/0001_initial.sql): initial Postgres schema.
+- [web/src/App.tsx](web/src/App.tsx): frontend app shell and route split.
+- [deploy/docker-compose.yml](deploy/docker-compose.yml): single-host deployment stack.
 
 ## Local development
 
@@ -55,7 +55,7 @@ docker compose -f deploy/docker-compose.yml up --build -d
 
 ```bash
 docker compose -f deploy/docker-compose.yml exec api \
-  xbox-party-chat bootstrap-owner \
+  greenring bootstrap-owner \
   --username owner \
   --display-name "Party Owner" \
   --password "change-me-now"

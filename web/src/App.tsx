@@ -119,7 +119,7 @@ function LoadingScreen({ label }: { label: string }) {
   return (
     <main className="loading-screen">
       <div className="loading-panel">
-        <p className="eyebrow">Xbox Party Chat</p>
+        <p className="eyebrow">Green Ring</p>
         <h1>{label}</h1>
         <p className="muted">
           Warming the roster, syncing presence, and dusting off the blades UI.

@@ -14,7 +14,7 @@ use clap::{Parser, Subcommand};
 use crate::config::Config;
 
 #[derive(Debug, Parser)]
-#[command(author, version, about = "Xbox Party Chat backend service")]
+#[command(author, version, about = "Green Ring backend service")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
@@ -66,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
 
 fn init_tracing() {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "xbox_party_chat=debug,tower_http=info,axum=info".into());
+        .unwrap_or_else(|_| "greenring=debug,tower_http=info,axum=info".into());
 
     tracing_subscriber::fmt()
         .with_env_filter(filter)

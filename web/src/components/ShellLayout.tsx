@@ -29,7 +29,7 @@ export function ShellLayout({
       <aside className="shell-sidebar">
         <div className="brand-badge">
           <p className="eyebrow">Dashboard</p>
-          <h1>Xbox Party Chat</h1>
+          <h1>Green Ring</h1>
           <p className="muted">
             Private voice-first hangout space for the people who were there in 2008.
           </p>
