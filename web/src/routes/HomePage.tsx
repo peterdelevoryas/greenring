@@ -1,23 +1,27 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { ApiError, createParty, getHome, joinParty, leaveParty } from "../lib/api";
-import { applyJoinedParty, applyLeftParty } from "../lib/home-state";
-import type { HomeResponse, PartySummary, UserSummary } from "../lib/types";
+import { ApiError, createParty } from "../lib/api";
+import type { PartySummary } from "../lib/types";
+import { usePartySession } from "../party-session";
 
-export function HomePage({ currentUser }: { currentUser: UserSummary }) {
+export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const homeQuery = useQuery({
-    queryKey: ["home"],
-    queryFn: getHome,
-  });
+  const {
+    activeParty,
+    activePartyId,
+    home,
+    homeError,
+    homeLoading,
+    joinParty,
+    joiningPartyId,
+    leaveParty,
+    leavingPartyId,
+  } = usePartySession();
   const [partyName, setPartyName] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  const currentPresence = homeQuery.data?.roster.find((entry) => entry.user.id === currentUser.id);
-  const activePartyId = currentPresence?.active_party_id ?? null;
 
   const createPartyMutation = useMutation({
     mutationFn: createParty,
@@ -26,31 +30,6 @@ export function HomePage({ currentUser }: { currentUser: UserSummary }) {
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["home"] });
       navigate(`/party/${party.id}`);
-    },
-    onError: handleError,
-  });
-
-  const joinPartyMutation = useMutation({
-    mutationFn: joinParty,
-    onSuccess: (party) => {
-      setError(null);
-      queryClient.setQueryData<HomeResponse>(["home"], (current) => (
-        applyJoinedParty(current, currentUser.id, party)
-      ));
-      queryClient.invalidateQueries({ queryKey: ["home"] });
-      navigate(`/party/${party.id}`);
-    },
-    onError: handleError,
-  });
-
-  const leavePartyMutation = useMutation({
-    mutationFn: leaveParty,
-    onSuccess: (_, partyId) => {
-      setError(null);
-      queryClient.setQueryData<HomeResponse>(["home"], (current) => (
-        applyLeftParty(current, currentUser.id, partyId)
-      ));
-      queryClient.invalidateQueries({ queryKey: ["home"] });
     },
     onError: handleError,
   });
@@ -68,11 +47,30 @@ export function HomePage({ currentUser }: { currentUser: UserSummary }) {
     createPartyMutation.mutate({ name: partyName });
   }
 
-  if (homeQuery.isLoading) {
+  async function handleJoinParty(partyId: string) {
+    try {
+      setError(null);
+      await joinParty(partyId);
+      navigate(`/party/${partyId}`);
+    } catch (mutationError) {
+      handleError(mutationError);
+    }
+  }
+
+  async function handleLeaveParty(partyId: string) {
+    try {
+      setError(null);
+      await leaveParty(partyId);
+    } catch (mutationError) {
+      handleError(mutationError);
+    }
+  }
+
+  if (homeLoading) {
     return <section className="content-card">Loading roster...</section>;
   }
 
-  if (homeQuery.isError || !homeQuery.data) {
+  if (homeError || !home) {
     return (
       <section className="content-card">
         <h2>Could not load your roster</h2>
@@ -80,8 +78,6 @@ export function HomePage({ currentUser }: { currentUser: UserSummary }) {
       </section>
     );
   }
-
-  const activeParty = homeQuery.data.parties.find((party) => party.id === activePartyId) ?? null;
 
   return (
     <div className="dashboard-grid">
@@ -91,8 +87,8 @@ export function HomePage({ currentUser }: { currentUser: UserSummary }) {
           <h2>{activeParty ? `You are in ${activeParty.name}` : "No active party"}</h2>
           <p className="muted">
             {activeParty
-              ? `${activeParty.active_members.length} people are active in voice right now.`
-              : "Spin up a room, join one in progress, or just keep the roster open while everyone trickles in."}
+              ? `${activeParty.active_members.length} people are active in the room right now.`
+              : "Spin up a room, join one in progress, or keep the roster open while everyone trickles in."}
           </p>
         </div>
         {activeParty ? (
@@ -127,18 +123,18 @@ export function HomePage({ currentUser }: { currentUser: UserSummary }) {
         </div>
 
         <div className="party-list">
-          {homeQuery.data.parties.map((party) => (
+          {home.parties.map((party) => (
             <PartyCard
               activePartyId={activePartyId}
-              isJoining={joinPartyMutation.isPending && joinPartyMutation.variables === party.id}
-              isLeaving={leavePartyMutation.isPending && leavePartyMutation.variables === party.id}
+              isJoining={joiningPartyId === party.id}
+              isLeaving={leavingPartyId === party.id}
               key={party.id}
-              onJoin={() => joinPartyMutation.mutate(party.id)}
-              onLeave={() => leavePartyMutation.mutate(party.id)}
+              onJoin={() => void handleJoinParty(party.id)}
+              onLeave={() => void handleLeaveParty(party.id)}
               party={party}
             />
           ))}
-          {homeQuery.data.parties.length === 0 ? (
+          {home.parties.length === 0 ? (
             <div className="empty-state">
               <p>No parties yet.</p>
               <p className="muted">Create the first hangout room to get the dashboard moving.</p>
@@ -154,9 +150,9 @@ export function HomePage({ currentUser }: { currentUser: UserSummary }) {
         </div>
 
         <ul className="roster-list">
-          {homeQuery.data.roster.map((entry) => {
+          {home.roster.map((entry) => {
             const linkedParty = entry.active_party_id
-              ? homeQuery.data.parties.find((party) => party.id === entry.active_party_id)
+              ? home.parties.find((party) => party.id === entry.active_party_id)
               : null;
 
             return (

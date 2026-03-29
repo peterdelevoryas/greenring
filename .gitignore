@@ -4,7 +4,11 @@
 /.env
 /.env.*
 !/.env.example
+!/.env.local.example
+!/.env.e2e.example
 /deploy/.env
 /web/*.tsbuildinfo
 /web/vite.config.js
 /web/vite.config.d.ts
+/web/playwright-report
+/web/test-results

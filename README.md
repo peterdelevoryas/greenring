@@ -17,29 +17,58 @@ Private, invite-only hangout app for a close friend group, built around the 2008
 
 ## Local development
 
-1. Copy `.env.example` to `.env` and adjust values for local dev.
-2. Start Postgres and Redis locally, or use Docker Compose for those services.
-3. Run the backend migrations and bootstrap the owner account:
+1. Copy `.env.local.example` to `.env.local`.
+2. Start the local services stack:
 
 ```bash
-cargo run -- bootstrap-owner --username owner --display-name "Party Owner" --password "change-me-now"
+./scripts/local-services.sh up .env.local
+```
+
+3. Bootstrap the owner account:
+
+```bash
+./scripts/bootstrap-owner.sh .env.local owner "Party Owner" "change-me-now"
 ```
 
 4. Start the backend:
 
 ```bash
-cargo run
+./scripts/run-local-api.sh .env.local
 ```
 
 5. Start the frontend:
 
 ```bash
-cd web
 npm install
-npm run dev
+bash ./scripts/run-local-web.sh
 ```
 
-For local Vite development, set `APP_CORS_ORIGIN=http://localhost:5173` and `LIVEKIT_WS_URL=ws://localhost:7880` in `.env`.
+The local services stack exposes Postgres on `127.0.0.1:5432`, Redis on `127.0.0.1:6379`, and LiveKit on `127.0.0.1:7880`, so the backend can run directly on your machine while Vite proxies API and websocket traffic to `http://127.0.0.1:3000`.
+
+## Local E2E
+
+1. Copy `.env.e2e.example` to `.env.e2e`.
+2. Install frontend dependencies and a browser for Playwright:
+
+```bash
+cd web
+npm install
+npx playwright install chromium
+```
+
+3. Run the smoke suite:
+
+```bash
+cd web
+npm run test:e2e
+```
+
+The Playwright harness will:
+- reset a dedicated local Postgres volume
+- start the local Docker services stack under a separate compose project
+- bootstrap an `owner` account with password `change-me-now`
+- start the Rust API and Vite dev server
+- run a smoke flow that logs in, creates and joins a party, navigates to Settings, creates an invite, and verifies the party still shows as active when returning to the dashboard
 
 ## Docker deployment
 

@@ -15,6 +15,7 @@ import { getSession } from "./lib/api";
 import type { UserSummary } from "./lib/types";
 import { useRealtime } from "./hooks/useRealtime";
 import { ShellLayout } from "./components/ShellLayout";
+import { PartySessionProvider } from "./party-session";
 
 const HomePage = lazy(async () => {
   const module = await import("./routes/HomePage");
@@ -100,18 +101,20 @@ function AuthedRoutes({
   lastEventAt: number | null;
 }) {
   return (
-    <ShellLayout currentUser={currentUser} lastEventAt={lastEventAt}>
-      <Suspense fallback={<LoadingScreen label="Loading dashboard..." />}>
-        <Routes>
-          <Route path="/" element={<HomePage currentUser={currentUser} />} />
-          <Route path="/party/:partyId" element={<PartyPage currentUser={currentUser} />} />
-          <Route path="/settings" element={<SettingsPage currentUser={currentUser} />} />
-          <Route path="/login" element={<Navigate to="/" replace />} />
-          <Route path="/redeem" element={<Navigate to="/" replace />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
-    </ShellLayout>
+    <PartySessionProvider currentUser={currentUser}>
+      <ShellLayout currentUser={currentUser} lastEventAt={lastEventAt}>
+        <Suspense fallback={<LoadingScreen label="Loading dashboard..." />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/party/:partyId" element={<PartyPage />} />
+            <Route path="/settings" element={<SettingsPage currentUser={currentUser} />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/redeem" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </ShellLayout>
+    </PartySessionProvider>
   );
 }
 
