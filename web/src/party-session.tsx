@@ -25,22 +25,37 @@ interface PartySessionContextValue {
   leavingPartyId: string | null;
   remoteParticipants: string[];
   voiceError: string | null;
+  voiceIsolationEnabled: boolean;
+  voiceIsolationPending: boolean;
   voicePartyId: string | null;
   voiceState: VoiceState;
   connectVoice: (partyId: string) => Promise<void>;
   disconnectVoice: () => Promise<void>;
   joinParty: (partyId: string) => Promise<PartySummary>;
   leaveParty: (partyId: string) => Promise<void>;
+  setVoiceIsolationEnabled: (enabled: boolean) => Promise<void>;
 }
 
 const PartySessionContext = createContext<PartySessionContextValue | null>(null);
-const MICROPHONE_CAPTURE_OPTIONS: AudioCaptureOptions = {
-  autoGainControl: true,
-  channelCount: 1,
-  echoCancellation: true,
-  noiseSuppression: true,
-  voiceIsolation: true,
-};
+const VOICE_ISOLATION_STORAGE_KEY = "greenring.voice-isolation-enabled";
+
+function buildMicrophoneCaptureOptions(voiceIsolationEnabled: boolean): AudioCaptureOptions {
+  return {
+    autoGainControl: true,
+    channelCount: 1,
+    echoCancellation: true,
+    noiseSuppression: true,
+    voiceIsolation: voiceIsolationEnabled,
+  };
+}
+
+function readVoiceIsolationPreference() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  return window.localStorage.getItem(VOICE_ISOLATION_STORAGE_KEY) !== "off";
+}
 
 export function PartySessionProvider({
   children,
@@ -65,6 +80,8 @@ export function PartySessionProvider({
   const [leavingPartyId, setLeavingPartyId] = useState<string | null>(null);
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [voiceIsolationEnabled, setVoiceIsolationEnabledState] = useState(readVoiceIsolationPreference);
+  const [voiceIsolationPending, setVoiceIsolationPending] = useState(false);
   const [voicePartyId, setVoicePartyId] = useState<string | null>(null);
   const [connectingVoicePartyId, setConnectingVoicePartyId] = useState<string | null>(null);
   const [remoteParticipants, setRemoteParticipants] = useState<string[]>([]);
@@ -92,6 +109,17 @@ export function PartySessionProvider({
       roomRef.current = null;
     }
   ), []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      VOICE_ISOLATION_STORAGE_KEY,
+      voiceIsolationEnabled ? "on" : "off",
+    );
+  }, [voiceIsolationEnabled]);
 
   async function joinParty(partyId: string) {
     setJoiningPartyId(partyId);
@@ -149,7 +177,7 @@ export function PartySessionProvider({
       setVoiceState("connecting");
       const grant = await issueVoiceToken(partyId);
       const nextRoom = new Room({
-        audioCaptureDefaults: MICROPHONE_CAPTURE_OPTIONS,
+        audioCaptureDefaults: buildMicrophoneCaptureOptions(voiceIsolationEnabled),
       });
       room = nextRoom;
 
@@ -205,7 +233,10 @@ export function PartySessionProvider({
 
       await nextRoom.connect(grant.ws_url, grant.token);
       roomRef.current = nextRoom;
-      await nextRoom.localParticipant.setMicrophoneEnabled(true, MICROPHONE_CAPTURE_OPTIONS);
+      await nextRoom.localParticipant.setMicrophoneEnabled(
+        true,
+        buildMicrophoneCaptureOptions(voiceIsolationEnabled),
+      );
       setVoicePartyId(partyId);
       syncRemoteParticipants(nextRoom);
       setVoiceState("connected");
@@ -242,6 +273,43 @@ export function PartySessionProvider({
     room?.disconnect();
   }
 
+  async function setVoiceIsolationEnabled(enabled: boolean) {
+    if (enabled === voiceIsolationEnabled) {
+      return;
+    }
+
+    const previous = voiceIsolationEnabled;
+    setVoiceError(null);
+    setVoiceIsolationEnabledState(enabled);
+
+    const room = roomRef.current;
+    if (!room || voiceState !== "connected") {
+      return;
+    }
+
+    setVoiceIsolationPending(true);
+
+    try {
+      const microphoneTrack = room.localParticipant
+        .getTrackPublication(Track.Source.Microphone)
+        ?.audioTrack;
+
+      if (microphoneTrack) {
+        await microphoneTrack.restartTrack(buildMicrophoneCaptureOptions(enabled));
+      }
+    } catch (voiceIsolationError) {
+      setVoiceIsolationEnabledState(previous);
+      if (voiceIsolationError instanceof Error) {
+        setVoiceError(voiceIsolationError.message);
+      } else {
+        setVoiceError("Could not update voice isolation.");
+      }
+      throw voiceIsolationError;
+    } finally {
+      setVoiceIsolationPending(false);
+    }
+  }
+
   function syncRemoteParticipants(room: Room) {
     setRemoteParticipants(
       Array.from(room.remoteParticipants.values())
@@ -263,12 +331,15 @@ export function PartySessionProvider({
         leavingPartyId,
         remoteParticipants,
         voiceError,
+        voiceIsolationEnabled,
+        voiceIsolationPending,
         voicePartyId,
         voiceState,
         connectVoice,
         disconnectVoice,
         joinParty,
         leaveParty,
+        setVoiceIsolationEnabled,
       }}
     >
       {children}

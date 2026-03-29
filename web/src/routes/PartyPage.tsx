@@ -1,16 +1,14 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ApiError, getPartyMessages, sendPartyMessage } from "../lib/api";
+import { ApiError } from "../lib/api";
 import { usePartySession } from "../party-session";
+import { PartyTextChat } from "../components/PartyTextChat";
 import { UserAvatar } from "../components/UserAvatar";
-import { UserIdentity } from "../components/UserIdentity";
 
 export function PartyPage() {
   const { partyId = "" } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const {
     activePartyId,
     connectingVoicePartyId,
@@ -25,28 +23,13 @@ export function PartyPage() {
     leavingPartyId,
     remoteParticipants,
     voiceError,
+    voiceIsolationEnabled,
+    voiceIsolationPending,
     voicePartyId,
     voiceState,
+    setVoiceIsolationEnabled,
   } = usePartySession();
-  const messagesQuery = useQuery({
-    queryKey: ["messages", partyId],
-    queryFn: () => getPartyMessages(partyId),
-    enabled: Boolean(partyId),
-  });
-
-  const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  const sendMessageMutation = useMutation({
-    mutationFn: (body: string) => sendPartyMessage(partyId, body),
-    onSuccess: () => {
-      setDraft("");
-      setError(null);
-      queryClient.invalidateQueries({ queryKey: ["messages", partyId] });
-      queryClient.invalidateQueries({ queryKey: ["home"] });
-    },
-    onError: handleError,
-  });
 
   const isInParty = activePartyId === partyId;
   const isVoiceConnected = voiceState === "connected" && voicePartyId === partyId;
@@ -90,12 +73,16 @@ export function PartyPage() {
     } catch {}
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    sendMessageMutation.mutate(draft);
+  async function handleToggleVoiceIsolation() {
+    try {
+      setError(null);
+      await setVoiceIsolationEnabled(!voiceIsolationEnabled);
+    } catch (mutationError) {
+      handleError(mutationError);
+    }
   }
 
-  if (homeLoading || messagesQuery.isLoading) {
+  if (homeLoading) {
     return <section className="content-card">Loading party room...</section>;
   }
 
@@ -124,77 +111,55 @@ export function PartyPage() {
 
   return (
     <div className="party-room-grid">
-      <section className="content-card party-room-main">
-        <div className="glass-header">
-          <p className="eyebrow">Active Room</p>
-          <h2>{party.name}</h2>
-          <p className="muted">
-            Persistent text history with a voice lane that now stays live while you browse the rest of the dashboard.
-          </p>
-        </div>
-
-        <div className="party-room-toolbar">
-          {isInParty ? (
-            <button
-              className="ghost-button"
-              type="button"
-              onClick={() => void handleLeaveParty()}
-              disabled={leavingPartyId === partyId}
-            >
-              {leavingPartyId === partyId ? "Leaving Party..." : "Leave Party"}
-            </button>
-          ) : (
-            <button
-              className="primary-button"
-              type="button"
-              onClick={() => void handleJoinParty()}
-              disabled={joiningPartyId === partyId}
-            >
-              {joiningPartyId === partyId ? "Joining Party..." : "Join Party"}
-            </button>
-          )}
-          <Link className="secondary-button" to="/">
-            Back to Parties
-          </Link>
-        </div>
-
-        {error ? <p className="error-text">{error}</p> : null}
-
-        <div className="message-feed">
-          {messagesQuery.data?.messages.map((message) => (
-            <article className="message-card" key={message.id}>
-              <header className="message-header">
-                <UserIdentity
-                  user={message.author}
-                  size="sm"
-                  subtitle={formatTimestamp(message.created_at)}
-                />
-              </header>
-              <p>{message.body}</p>
-            </article>
-          ))}
-          {messagesQuery.data?.messages.length === 0 ? (
-            <div className="empty-state">
-              <p>No messages yet.</p>
-              <p className="muted">Drop the first “who’s on?” and get the room going.</p>
-            </div>
-          ) : null}
-        </div>
-
-        <form className="message-form" onSubmit={handleSubmit}>
-          <textarea
-            disabled={!isInParty}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder={isInParty ? "Write to the room..." : "Join the party to chat"}
-          />
-          <button className="primary-button" type="submit" disabled={!isInParty || sendMessageMutation.isPending}>
-            {sendMessageMutation.isPending ? "Sending..." : "Send Message"}
-          </button>
-        </form>
-      </section>
+      <PartyTextChat
+        currentUser={home.current_user}
+        isInParty={isInParty}
+        isVoiceConnected={isVoiceConnected}
+        isVoiceConnecting={isVoiceConnecting}
+        onConnectVoice={() => connectVoice(partyId)}
+        onDisconnectVoice={disconnectVoice}
+        onLeaveParty={() => leaveParty(partyId)}
+        onNavigateToParties={() => navigate("/")}
+        partyId={party.id}
+        partyName={party.name}
+      />
 
       <aside className="party-room-sidebar">
+        <div className="content-card">
+          <div className="glass-header compact">
+            <p className="eyebrow">Room Controls</p>
+            <h2>Stay in Party</h2>
+            <p className="muted">{party.name}</p>
+          </div>
+
+          <div className="party-room-toolbar">
+            {isInParty ? (
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => void handleLeaveParty()}
+                disabled={leavingPartyId === partyId}
+              >
+                {leavingPartyId === partyId ? "Leaving Party..." : "Leave Party"}
+              </button>
+            ) : (
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => void handleJoinParty()}
+                disabled={joiningPartyId === partyId}
+              >
+                {joiningPartyId === partyId ? "Joining Party..." : "Join Party"}
+              </button>
+            )}
+            <Link className="secondary-button" to="/">
+              Back to Parties
+            </Link>
+          </div>
+
+          {error ? <p className="error-text">{error}</p> : null}
+        </div>
+
         <section className="content-card voice-card">
           <div className="glass-header compact">
             <p className="eyebrow">Voice Lane</p>
@@ -207,7 +172,9 @@ export function PartyPage() {
               : "Jump straight into voice. Green Ring will join the party first, then connect your mic."}
           </p>
           <p className="tiny-copy">
-            Mic cleanup is enabled with echo cancellation, noise suppression, and voice isolation when the browser supports it.
+            {voiceIsolationEnabled
+              ? "Voice isolation is on by default. Echo cancellation and noise suppression stay enabled whenever the browser supports them."
+              : "Voice isolation is off. Echo cancellation and noise suppression still stay enabled."}
           </p>
 
           <div className="party-actions">
@@ -229,6 +196,16 @@ export function PartyPage() {
                     : "Join Party + Voice"}
               </button>
             )}
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void handleToggleVoiceIsolation()}
+              disabled={voiceIsolationPending}
+            >
+              {voiceIsolationPending
+                ? "Applying..."
+                : `Voice Isolation: ${voiceIsolationEnabled ? "On" : "Off"}`}
+            </button>
           </div>
 
           {voiceError ? <p className="error-text">{voiceError}</p> : null}
@@ -267,13 +244,4 @@ export function PartyPage() {
       </aside>
     </div>
   );
-}
-
-function formatTimestamp(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-    day: "numeric",
-  }).format(new Date(value));
 }

@@ -9,26 +9,35 @@ async function loginAsOwner(page: Page) {
   await expect(page.getByRole("heading", { name: "No active party" })).toBeVisible();
 }
 
+async function createParty(page: Page, partyName: string) {
+  await page.getByPlaceholder("Halo 3 throwback").fill(partyName);
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(page).toHaveURL(/\/party\/.+$/);
+  await expect(page.getByRole("heading", { name: partyName })).toBeVisible();
+}
+
 test("owner can create a party, move around the app, and mint an invite", async ({ page }) => {
   const partyName = `Smoke Test ${Date.now()}`;
   const voiceCard = page.locator(".voice-card");
   const sessionCard = page.locator(".party-session-card");
 
   await loginAsOwner(page);
+  await createParty(page, partyName);
 
-  await page.getByPlaceholder("Halo 3 throwback").fill(partyName);
-  await page.getByRole("button", { name: "Create" }).click();
-
-  await expect(page).toHaveURL(/\/party\/.+$/);
-  await expect(page.getByRole("heading", { name: partyName })).toBeVisible();
+  await expect(voiceCard.getByRole("button", { name: "Voice Isolation: On" })).toBeVisible();
+  await voiceCard.getByRole("button", { name: "Voice Isolation: On" }).click();
+  await expect(voiceCard.getByRole("button", { name: "Voice Isolation: Off" })).toBeVisible();
 
   await voiceCard.getByRole("button", { name: "Join Party + Voice" }).click();
   await expect(voiceCard.getByRole("button", { name: "Leave Voice" })).toBeVisible({ timeout: 20_000 });
+  await voiceCard.getByRole("button", { name: "Voice Isolation: Off" }).click();
+  await expect(voiceCard.getByRole("button", { name: "Voice Isolation: On" })).toBeVisible();
 
   await page.getByRole("link", { name: "Settings" }).click();
   await expect(page.getByRole("heading", { name: "Account handle" })).toBeVisible();
   await expect(sessionCard.getByText(partyName)).toBeVisible();
   await expect(sessionCard.getByRole("button", { name: "Leave Voice" })).toBeVisible();
+  await expect(sessionCard.getByRole("button", { name: "Voice Isolation: On" })).toBeVisible();
 
   const gamerpicOption = page.locator(".gamerpic-option").first();
   await expect(gamerpicOption).toBeVisible();
@@ -53,4 +62,53 @@ test("owner can create a party, move around the app, and mint an invite", async 
   await page.getByRole("button", { name: "Sign Out" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("button", { name: "Enter Party Chat" })).toBeVisible();
+});
+
+test("party room shell chat supports multiline input and slash commands", async ({ page }) => {
+  const partyName = `Shell Test ${Date.now()}`;
+  const voiceCard = page.locator(".voice-card");
+  const firstMessageText = "first line";
+  const secondMessageText = "second line";
+
+  await loginAsOwner(page);
+  await createParty(page, partyName);
+  await page.getByRole("button", { name: "Join Party", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Leave Party", exact: true }).first()).toBeVisible();
+
+  const prompt = page.getByLabel("Party chat prompt");
+  await prompt.fill(firstMessageText);
+  await prompt.press("Shift+Enter");
+  await prompt.type(secondMessageText);
+  await prompt.press("Enter");
+
+  const multilineMessage = page.locator(".chat-entry--message").filter({ hasText: firstMessageText }).last();
+  await expect(multilineMessage.locator(".chat-entry-body")).toContainText(firstMessageText);
+  await expect(multilineMessage.locator(".chat-entry-body")).toContainText(secondMessageText);
+
+  await prompt.fill("/help");
+  await prompt.press("Enter");
+  await expect(page.getByText("/joinvoice - join the party voice lane")).toBeVisible();
+
+  await prompt.fill("/clear");
+  await prompt.press("Enter");
+  await expect(page.getByText(firstMessageText)).not.toBeVisible();
+  await expect(page.getByText("Scrollback cleared locally.")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: partyName })).toBeVisible();
+  const restoredMessage = page.locator(".chat-entry--message").filter({ hasText: firstMessageText }).last();
+  await expect(restoredMessage.locator(".chat-entry-body")).toContainText(secondMessageText);
+
+  const reloadedPrompt = page.getByLabel("Party chat prompt");
+  await reloadedPrompt.fill("/jo");
+  await expect(page.getByRole("button", { name: /\/joinvoice/ })).toBeVisible();
+  await reloadedPrompt.press("Tab");
+  await expect(reloadedPrompt).toHaveValue("/joinvoice");
+  await reloadedPrompt.press("Enter");
+  await expect(voiceCard.getByRole("button", { name: "Leave Voice" })).toBeVisible({ timeout: 20_000 });
+
+  await reloadedPrompt.fill("/parties");
+  await reloadedPrompt.press("Enter");
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { name: `You are in ${partyName}` })).toBeVisible();
 });

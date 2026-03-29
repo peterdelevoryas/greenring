@@ -28,7 +28,10 @@ export function ShellLayout({
     leaveParty,
     leavingPartyId,
     remoteParticipants,
+    setVoiceIsolationEnabled,
     voicePartyId,
+    voiceIsolationEnabled,
+    voiceIsolationPending,
     voiceState,
   } = usePartySession();
   const [partyError, setPartyError] = useState<string | null>(null);
@@ -74,6 +77,15 @@ export function ShellLayout({
     try {
       setPartyError(null);
       await leaveParty(activeParty.id);
+    } catch (error) {
+      handleError(error);
+    }
+  }
+
+  async function handleToggleVoiceIsolation() {
+    try {
+      setPartyError(null);
+      await setVoiceIsolationEnabled(!voiceIsolationEnabled);
     } catch (error) {
       handleError(error);
     }
@@ -186,7 +198,22 @@ export function ShellLayout({
                 >
                   {leavingPartyId === activeParty.id ? "Leaving Party..." : "Leave Party"}
                 </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => void handleToggleVoiceIsolation()}
+                  disabled={voiceIsolationPending}
+                >
+                  {voiceIsolationPending
+                    ? "Applying..."
+                    : `Voice Isolation: ${voiceIsolationEnabled ? "On" : "Off"}`}
+                </button>
               </div>
+              <p className="tiny-copy">
+                {voiceIsolationEnabled
+                  ? "Voice isolation is on for your microphone when the browser supports it."
+                  : "Voice isolation is off for your microphone. Echo cancellation and noise suppression still stay enabled."}
+              </p>
               {remoteParticipants.length > 0 ? (
                 <p className="tiny-copy">Listening with {remoteParticipants.join(", ")}</p>
               ) : null}
