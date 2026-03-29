@@ -5,7 +5,7 @@ Private, invite-only hangout app for a close friend group, built around the 2008
 ## What is in this repo
 
 - Rust backend with `axum`, `sqlx`, cookie sessions, realtime WebSocket events, invite-only accounts, persistent party rooms, and LiveKit token issuance.
-- React + TypeScript + Vite frontend with a retro Xbox-inspired shell, presence roster, persistent room text chat, owner invite management, and browser voice hookup via LiveKit.
+- React + TypeScript + Vite frontend with a retro Xbox-inspired shell, presence roster, preset dashboard gamerpics, persistent room text chat, owner invite management, and browser voice hookup via LiveKit.
 - Docker assets for a single-VPS deployment using `postgres`, `redis`, `livekit`, `api`, `web`, and `caddy`.
 
 ## Repo layout
@@ -68,7 +68,7 @@ The Playwright harness will:
 - start the local Docker services stack under a separate compose project
 - bootstrap an `owner` account with password `change-me-now`
 - start the Rust API and Vite dev server
-- run a smoke flow that logs in, creates and joins a party, navigates to Settings, creates an invite, and verifies the party still shows as active when returning to the dashboard
+- run a smoke flow that logs in, creates and joins a party, selects a dashboard gamerpic, creates an invite, and verifies the party still shows as active when returning to the dashboard
 
 ## Docker deployment
 
@@ -105,5 +105,6 @@ docker compose -f deploy/docker-compose.yml exec api \
 
 ## Notes
 
+- The bundled dashboard gamerpic pack in [`web/public/gamerpics/xbox-360-dashboard`](web/public/gamerpics/xbox-360-dashboard) was sourced from [Xbox Gamerpics](https://xboxgamer.pics/titles/promotional/xbox-360-dashboard) and is served locally by Green Ring.
 - LiveKit self-hosting guidance used for the deploy defaults: [Deploying LiveKit](https://docs.livekit.io/transport/self-hosting/deployment/) and [Ports and firewall](https://docs.livekit.io/transport/self-hosting/ports-firewall/).
 - The included Compose stack is a practical starting point for a small private deployment, not a hardened production reference.

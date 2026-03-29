@@ -19,7 +19,7 @@ use crate::{
             CreateMessageRequest, CreatePartyRequest, FriendPresence, HomeResponse,
             LiveKitJoinGrant, MessageCreatedPayload, MessageListResponse, PartyJoinedPayload,
             PartyLeftPayload, PartyMemberSummary, PartySummary, PartyUpdatedPayload,
-            PresenceStatus, PresenceUpdatedPayload, ServerEvent,
+            PresenceStatus, PresenceUpdatedPayload, ProfileUpdatedPayload, ServerEvent,
         },
         db::{CurrentMembershipRow, PartyMessageRow, PartyRecord, PartyStatsRow, UserRecord},
     },
@@ -174,7 +174,8 @@ async fn list_messages(
             m.created_at,
             u.username,
             u.display_name,
-            u.role
+            u.role,
+            u.avatar_key
         FROM party_messages m
         JOIN users u ON u.id = m.user_id
         WHERE m.party_id = $1
@@ -224,7 +225,8 @@ async fn post_message(
             created_at,
             $5 AS username,
             $6 AS display_name,
-            $7 AS role
+            $7 AS role,
+            $8 AS avatar_key
         "#,
     )
     .bind(Uuid::new_v4())
@@ -234,6 +236,7 @@ async fn post_message(
     .bind(&user.username)
     .bind(&user.display_name)
     .bind(&user.role)
+    .bind(&user.avatar_key)
     .fetch_one(&state.db)
     .await?;
 
@@ -293,6 +296,15 @@ pub async fn emit_presence_for_user(
         state,
         ServerEvent::PresenceUpdated(PresenceUpdatedPayload {
             presence: build_friend_presence(user, presence.as_ref(), active_party_id),
+        }),
+    );
+}
+
+pub async fn emit_profile_updated(state: &AppState, user: &UserRecord) {
+    broadcast(
+        state,
+        ServerEvent::ProfileUpdated(ProfileUpdatedPayload {
+            user: user.summary(),
         }),
     );
 }
@@ -456,7 +468,7 @@ fn build_friend_presence(
     active_party_id: Option<Uuid>,
 ) -> FriendPresence {
     let status = match presence {
-        Some(snapshot) if snapshot.online => PresenceStatus::Online,
+        Some(snapshot) => snapshot.status.clone(),
         _ => PresenceStatus::Offline,
     };
 
@@ -484,7 +496,7 @@ async fn active_member_count(state: &AppState, party_id: Uuid) -> usize {
 async fn fetch_users(state: &AppState) -> AppResult<Vec<UserRecord>> {
     let users = sqlx::query_as::<_, UserRecord>(
         r#"
-        SELECT id, username, display_name, role
+        SELECT id, username, display_name, role, avatar_key
         FROM users
         ORDER BY LOWER(display_name), LOWER(username)
         "#,

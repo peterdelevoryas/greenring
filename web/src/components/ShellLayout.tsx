@@ -3,8 +3,10 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, logout } from "../lib/api";
-import type { UserSummary } from "../lib/types";
+import type { PresenceStatus, UserSummary } from "../lib/types";
 import { usePartySession } from "../party-session";
+import { UserAvatar } from "./UserAvatar";
+import { UserIdentity } from "./UserIdentity";
 
 export function ShellLayout({
   currentUser,
@@ -22,6 +24,7 @@ export function ShellLayout({
     connectVoice,
     connectingVoicePartyId,
     disconnectVoice,
+    home,
     leaveParty,
     leavingPartyId,
     remoteParticipants,
@@ -29,13 +32,12 @@ export function ShellLayout({
     voiceState,
   } = usePartySession();
   const [partyError, setPartyError] = useState<string | null>(null);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const logoutMutation = useMutation({
     mutationFn: logout,
-    onSuccess: () => {
-      queryClient.clear();
-      navigate("/login", { replace: true });
-    },
   });
+  const currentPresence = home?.roster.find((entry) => entry.user.id === currentUser.id) ?? null;
+  const currentStatus = currentPresence?.status ?? "online";
   const isVoiceConnected = activeParty && voiceState === "connected" && voicePartyId === activeParty.id;
   const isVoiceConnecting = activeParty && connectingVoicePartyId === activeParty.id;
 
@@ -77,6 +79,29 @@ export function ShellLayout({
     }
   }
 
+  async function handleSignOut() {
+    try {
+      setLogoutError(null);
+      await disconnectVoice();
+      await logoutMutation.mutateAsync();
+      queryClient.setQueryData(["session"], null);
+      queryClient.removeQueries({ queryKey: ["home"] });
+      queryClient.removeQueries({ queryKey: ["messages"] });
+      queryClient.removeQueries({ queryKey: ["invites"] });
+      navigate("/login", { replace: true });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setLogoutError(error.message);
+        return;
+      }
+      if (error instanceof Error) {
+        setLogoutError(error.message);
+        return;
+      }
+      setLogoutError("Could not sign out.");
+    }
+  }
+
   return (
     <div className="shell">
       <aside className="shell-sidebar">
@@ -98,11 +123,10 @@ export function ShellLayout({
 
         <div className="status-card">
           <p className="eyebrow">Signed in as</p>
-          <h2>{currentUser.display_name}</h2>
-          <p className="muted">@{currentUser.username}</p>
+          <UserIdentity user={currentUser} size="lg" />
           <div className="status-row">
-            <span className="presence-dot online" />
-            <span>Connected</span>
+            <span className={`presence-dot ${currentStatus}`} />
+            <span>{presenceLabel(currentStatus)}</span>
           </div>
           <p className="tiny-copy">
             {lastEventAt ? `Realtime sync ${timeAgo(lastEventAt)}` : "Awaiting live sync"}
@@ -127,8 +151,9 @@ export function ShellLayout({
               <div className="party-members compact">
                 {activeParty.active_members.length > 0
                   ? activeParty.active_members.slice(0, 4).map((member) => (
-                      <span className="member-chip" key={member.user.id}>
-                        {member.user.display_name}
+                      <span className="member-chip member-chip--avatar" key={member.user.id}>
+                        <UserAvatar user={member.user} size="xs" />
+                        <span>{member.user.display_name}</span>
                       </span>
                     ))
                   : <span className="member-chip idle">Nobody active yet</span>}
@@ -178,11 +203,12 @@ export function ShellLayout({
         <button
           className="secondary-button"
           type="button"
-          onClick={() => logoutMutation.mutate()}
+          onClick={() => void handleSignOut()}
           disabled={logoutMutation.isPending}
         >
           {logoutMutation.isPending ? "Signing out..." : "Sign Out"}
         </button>
+        {logoutError ? <p className="error-text">{logoutError}</p> : null}
       </aside>
 
       <main className="shell-main">{children}</main>
@@ -208,4 +234,15 @@ function timeAgo(timestamp: number) {
   }
   const minutes = Math.floor(seconds / 60);
   return `${minutes}m ago`;
+}
+
+function presenceLabel(status: PresenceStatus) {
+  switch (status) {
+    case "away":
+      return "Away";
+    case "offline":
+      return "Offline";
+    default:
+      return "Connected";
+  }
 }

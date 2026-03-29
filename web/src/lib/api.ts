@@ -5,6 +5,7 @@ import type {
   MessageListResponse,
   PartyMessage,
   PartySummary,
+  PresenceStatus,
   SessionResponse,
 } from "./types";
 
@@ -83,8 +84,22 @@ export function logout() {
   return request<void>("/auth/logout", { method: "POST" });
 }
 
+export function updatePresenceStatus(input: { status: Exclude<PresenceStatus, "offline"> }) {
+  return request<void>("/presence/status", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export function updateProfile(input: { username: string }) {
   return request<SessionResponse>("/auth/profile", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateAvatar(input: { avatar_key: string | null }) {
+  return request<SessionResponse>("/auth/profile/avatar", {
     method: "POST",
     body: JSON.stringify(input),
   });

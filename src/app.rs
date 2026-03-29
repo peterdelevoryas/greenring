@@ -45,6 +45,7 @@ fn build_router(state: AppState) -> anyhow::Result<Router> {
         .nest("/auth", routes::auth::router())
         .nest("/invites", routes::invites::router())
         .nest("/parties", routes::parties::router())
+        .nest("/presence", routes::presence::router())
         .nest("/ws", routes::realtime::router())
         .with_state(state)
         .layer(cors)

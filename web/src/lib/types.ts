@@ -1,10 +1,12 @@
-export type PresenceStatus = "online" | "offline";
+export type PresenceStatus = "online" | "away" | "offline";
 
 export interface UserSummary {
   id: string;
   username: string;
   display_name: string;
   role: string;
+  avatar_key: string | null;
+  avatar_url: string | null;
 }
 
 export interface FriendPresence {
@@ -99,4 +101,8 @@ export type ServerEvent =
   | {
       type: "invite.revoked";
       payload: { invite_id: string };
+    }
+  | {
+      type: "profile.updated";
+      payload: { user: UserSummary };
     };

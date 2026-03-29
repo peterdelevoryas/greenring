@@ -75,6 +75,7 @@ mod tests {
             username: "player1".to_string(),
             display_name: "Player One".to_string(),
             role: "member".to_string(),
+            avatar_key: None,
         };
         let party = PartyRecord {
             id: Uuid::new_v4(),

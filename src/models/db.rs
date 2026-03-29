@@ -9,16 +9,18 @@ pub struct UserRecord {
     pub username: String,
     pub display_name: String,
     pub role: String,
+    pub avatar_key: Option<String>,
 }
 
 impl UserRecord {
     pub fn summary(&self) -> UserSummary {
-        UserSummary {
-            id: self.id,
-            username: self.username.clone(),
-            display_name: self.display_name.clone(),
-            role: self.role.clone(),
-        }
+        UserSummary::from_parts(
+            self.id,
+            self.username.clone(),
+            self.display_name.clone(),
+            self.role.clone(),
+            self.avatar_key.clone(),
+        )
     }
 
     pub fn is_owner(&self) -> bool {
@@ -33,6 +35,7 @@ pub struct LoginUserRecord {
     pub display_name: String,
     pub password_hash: String,
     pub role: String,
+    pub avatar_key: Option<String>,
 }
 
 impl LoginUserRecord {
@@ -42,6 +45,7 @@ impl LoginUserRecord {
             username: self.username,
             display_name: self.display_name,
             role: self.role,
+            avatar_key: self.avatar_key,
         }
     }
 }
@@ -78,6 +82,7 @@ pub struct PartyMessageRow {
     pub username: String,
     pub display_name: String,
     pub role: String,
+    pub avatar_key: Option<String>,
 }
 
 impl PartyMessageRow {
@@ -85,12 +90,13 @@ impl PartyMessageRow {
         PartyMessage {
             id: self.id,
             party_id: self.party_id,
-            author: UserSummary {
-                id: self.user_id,
-                username: self.username,
-                display_name: self.display_name,
-                role: self.role,
-            },
+            author: UserSummary::from_parts(
+                self.user_id,
+                self.username,
+                self.display_name,
+                self.role,
+                self.avatar_key,
+            ),
             body: self.body,
             created_at: self.created_at,
         }
@@ -117,6 +123,7 @@ pub struct InviteListRow {
     pub redeemed_username: Option<String>,
     pub redeemed_display_name: Option<String>,
     pub redeemed_role: Option<String>,
+    pub redeemed_avatar_key: Option<String>,
 }
 
 impl InviteListRow {
@@ -126,13 +133,11 @@ impl InviteListRow {
             self.redeemed_username,
             self.redeemed_display_name,
             self.redeemed_role,
+            self.redeemed_avatar_key,
         ) {
-            (Some(id), Some(username), Some(display_name), Some(role)) => Some(UserSummary {
-                id,
-                username,
-                display_name,
-                role,
-            }),
+            (Some(id), Some(username), Some(display_name), Some(role), avatar_key) => Some(
+                UserSummary::from_parts(id, username, display_name, role, avatar_key),
+            ),
             _ => None,
         };
 

@@ -1,3 +1,1 @@
-* Filter for keyboard clicking and background noise in voice chat?
-* Idle/away state detection
-* profile pictures
+* Update site without interrupting live voice chats, or at least support dynamic reconnection?

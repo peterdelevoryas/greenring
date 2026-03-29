@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Room, RoomEvent, Track } from "livekit-client";
+import { Room, RoomEvent, Track, type AudioCaptureOptions } from "livekit-client";
 
 import {
   getHome,
@@ -34,6 +34,13 @@ interface PartySessionContextValue {
 }
 
 const PartySessionContext = createContext<PartySessionContextValue | null>(null);
+const MICROPHONE_CAPTURE_OPTIONS: AudioCaptureOptions = {
+  autoGainControl: true,
+  channelCount: 1,
+  echoCancellation: true,
+  noiseSuppression: true,
+  voiceIsolation: true,
+};
 
 export function PartySessionProvider({
   children,
@@ -141,7 +148,9 @@ export function PartySessionProvider({
 
       setVoiceState("connecting");
       const grant = await issueVoiceToken(partyId);
-      const nextRoom = new Room();
+      const nextRoom = new Room({
+        audioCaptureDefaults: MICROPHONE_CAPTURE_OPTIONS,
+      });
       room = nextRoom;
 
       nextRoom.on(RoomEvent.TrackSubscribed, (track) => {
@@ -196,7 +205,7 @@ export function PartySessionProvider({
 
       await nextRoom.connect(grant.ws_url, grant.token);
       roomRef.current = nextRoom;
-      await nextRoom.localParticipant.setMicrophoneEnabled(true);
+      await nextRoom.localParticipant.setMicrophoneEnabled(true, MICROPHONE_CAPTURE_OPTIONS);
       setVoicePartyId(partyId);
       syncRemoteParticipants(nextRoom);
       setVoiceState("connected");

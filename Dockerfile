@@ -5,6 +5,7 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY migrations ./migrations
 COPY src ./src
+COPY web/public/gamerpics/xbox-360-dashboard/manifest.json ./web/public/gamerpics/xbox-360-dashboard/manifest.json
 
 RUN cargo build --release
 

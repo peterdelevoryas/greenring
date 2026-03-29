@@ -3,8 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, createParty } from "../lib/api";
-import type { PartySummary } from "../lib/types";
+import type { PartySummary, PresenceStatus } from "../lib/types";
 import { usePartySession } from "../party-session";
+import { UserAvatar } from "../components/UserAvatar";
+import { UserIdentity } from "../components/UserIdentity";
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -157,18 +159,19 @@ export function HomePage() {
 
             return (
               <li className="roster-row" key={entry.user.id}>
-                <div>
-                  <div className="roster-name">
+                <div className="roster-user">
+                  <span className="presence-dot-column">
                     <span className={`presence-dot ${entry.status}`} />
-                    <strong>{entry.user.display_name}</strong>
-                  </div>
-                  <p className="muted">@{entry.user.username}</p>
+                  </span>
+                  <UserIdentity user={entry.user} size="md" />
                 </div>
                 <div className="roster-meta">
                   {linkedParty ? (
                     <span className="party-pill">In {linkedParty.name}</span>
                   ) : (
-                    <span className="party-pill idle">Idle</span>
+                    <span className={`party-pill ${entry.status}`}>
+                      {presenceLabel(entry.status)}
+                    </span>
                   )}
                 </div>
               </li>
@@ -178,6 +181,17 @@ export function HomePage() {
       </section>
     </div>
   );
+}
+
+function presenceLabel(status: PresenceStatus) {
+  switch (status) {
+    case "away":
+      return "Away";
+    case "offline":
+      return "Offline";
+    default:
+      return "Online";
+  }
 }
 
 function PartyCard({
@@ -216,8 +230,9 @@ function PartyCard({
       <div className="party-members">
         {party.active_members.length > 0
           ? party.active_members.map((member) => (
-              <span className="member-chip" key={member.user.id}>
-                {member.user.display_name}
+              <span className="member-chip member-chip--avatar" key={member.user.id}>
+                <UserAvatar user={member.user} size="xs" />
+                <span>{member.user.display_name}</span>
               </span>
             ))
           : <span className="member-chip idle">Nobody active</span>}

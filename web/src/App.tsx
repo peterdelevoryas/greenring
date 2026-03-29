@@ -13,6 +13,7 @@ import {
 
 import { getSession } from "./lib/api";
 import type { UserSummary } from "./lib/types";
+import { usePresenceActivity } from "./hooks/usePresenceActivity";
 import { useRealtime } from "./hooks/useRealtime";
 import { ShellLayout } from "./components/ShellLayout";
 import { PartySessionProvider } from "./party-session";
@@ -72,6 +73,7 @@ function AppShell() {
   useRealtime(Boolean(sessionQuery.data?.user), (timestamp) => {
     setLastEventAt(timestamp);
   });
+  usePresenceActivity(Boolean(sessionQuery.data?.user));
 
   if (sessionQuery.isLoading) {
     return <LoadingScreen label="Starting dashboard..." />;
@@ -81,8 +83,9 @@ function AppShell() {
     return (
       <Suspense fallback={<LoadingScreen label="Opening sign-in..." />}>
         <Routes>
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/redeem" element={<RedeemInvitePage />} />
-          <Route path="*" element={<LoginPage />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Suspense>
     );

@@ -7,9 +7,9 @@ use axum::{
 use axum_extra::extract::CookieJar;
 
 use crate::{
-    auth,
+    auth, avatars,
     error::{AppError, AppResult},
-    models::api::{LoginRequest, SessionResponse, UpdateProfileRequest},
+    models::api::{LoginRequest, SessionResponse, UpdateAvatarRequest, UpdateProfileRequest},
     routes::parties,
     state::AppState,
 };
@@ -20,6 +20,7 @@ pub fn router() -> Router<AppState> {
         .route("/logout", post(logout))
         .route("/me", get(me))
         .route("/profile", post(update_profile))
+        .route("/profile/avatar", post(update_avatar))
 }
 
 async fn login(
@@ -94,7 +95,7 @@ async fn update_profile(
         UPDATE users
         SET username = $2
         WHERE id = $1
-        RETURNING id, username, display_name, role
+        RETURNING id, username, display_name, role, avatar_key
         "#,
     )
     .bind(current_user.id)
@@ -103,6 +104,41 @@ async fn update_profile(
     .await?;
 
     parties::emit_presence_for_user(&state, &user, None).await;
+    parties::emit_profile_updated(&state, &user).await;
+
+    Ok(Json(SessionResponse {
+        user: user.summary(),
+    }))
+}
+
+async fn update_avatar(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Json(request): Json<UpdateAvatarRequest>,
+) -> AppResult<Json<SessionResponse>> {
+    let current_user = auth::require_user_from_jar(&state, &jar).await?;
+
+    let avatar_key = request
+        .avatar_key
+        .map(|key| key.trim().to_ascii_lowercase())
+        .filter(|key| !key.is_empty());
+    avatars::validate_avatar_key(avatar_key.as_deref())?;
+
+    let user = sqlx::query_as::<_, crate::models::db::UserRecord>(
+        r#"
+        UPDATE users
+        SET avatar_key = $2
+        WHERE id = $1
+        RETURNING id, username, display_name, role, avatar_key
+        "#,
+    )
+    .bind(current_user.id)
+    .bind(avatar_key)
+    .fetch_one(&state.db)
+    .await?;
+
+    parties::emit_presence_for_user(&state, &user, None).await;
+    parties::emit_profile_updated(&state, &user).await;
 
     Ok(Json(SessionResponse {
         user: user.summary(),

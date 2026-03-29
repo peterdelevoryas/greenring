@@ -2,18 +2,44 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::avatars::avatar_url_for_key;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UserSummary {
     pub id: Uuid,
     pub username: String,
     pub display_name: String,
     pub role: String,
+    pub avatar_key: Option<String>,
+    pub avatar_url: Option<String>,
+}
+
+impl UserSummary {
+    pub fn from_parts(
+        id: Uuid,
+        username: String,
+        display_name: String,
+        role: String,
+        avatar_key: Option<String>,
+    ) -> Self {
+        let avatar_url = avatar_url_for_key(avatar_key.as_deref());
+
+        Self {
+            id,
+            username,
+            display_name,
+            role,
+            avatar_key,
+            avatar_url,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PresenceStatus {
     Online,
+    Away,
     Offline,
 }
 
@@ -103,6 +129,16 @@ pub struct UpdateProfileRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateAvatarRequest {
+    pub avatar_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePresenceRequest {
+    pub status: PresenceStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RedeemInviteRequest {
     pub code: String,
     pub username: String,
@@ -148,6 +184,11 @@ pub struct PartyLeftPayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileUpdatedPayload {
+    pub user: UserSummary,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageCreatedPayload {
     pub message: PartyMessage,
 }
@@ -181,4 +222,6 @@ pub enum ServerEvent {
     InviteCreated(InviteCreatedPayload),
     #[serde(rename = "invite.revoked")]
     InviteRevoked(InviteRevokedPayload),
+    #[serde(rename = "profile.updated")]
+    ProfileUpdated(ProfileUpdatedPayload),
 }

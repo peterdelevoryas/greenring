@@ -30,9 +30,27 @@ test("owner can create a party, move around the app, and mint an invite", async 
   await expect(sessionCard.getByText(partyName)).toBeVisible();
   await expect(sessionCard.getByRole("button", { name: "Leave Voice" })).toBeVisible();
 
+  const gamerpicOption = page.locator(".gamerpic-option").first();
+  await expect(gamerpicOption).toBeVisible();
+  await gamerpicOption.click();
+  await page.getByRole("button", { name: "Save Gamerpic" }).click();
+  await expect(page.getByText("Gamerpic updated.")).toBeVisible();
+  await expect(page.locator(".status-card").first().locator(".avatar-image")).toHaveAttribute(
+    "src",
+    /\/gamerpics\/xbox-360-dashboard\/.+\.png$/,
+  );
+
   await page.getByRole("button", { name: "Create Invite" }).click();
   await expect(page.getByText(/^XPC-[A-Z0-9]{5}-[A-Z0-9]{5}$/)).toBeVisible();
 
   await page.getByRole("link", { name: "Parties" }).click();
   await expect(page.getByRole("heading", { name: `You are in ${partyName}` })).toBeVisible();
+  await expect(page.locator(".roster-row").first().locator(".avatar-image")).toHaveAttribute(
+    "src",
+    /\/gamerpics\/xbox-360-dashboard\/.+\.png$/,
+  );
+
+  await page.getByRole("button", { name: "Sign Out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("button", { name: "Enter Party Chat" })).toBeVisible();
 });

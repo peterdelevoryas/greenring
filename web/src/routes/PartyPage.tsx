@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ApiError, getPartyMessages, sendPartyMessage } from "../lib/api";
 import { usePartySession } from "../party-session";
+import { UserAvatar } from "../components/UserAvatar";
+import { UserIdentity } from "../components/UserIdentity";
 
 export function PartyPage() {
   const { partyId = "" } = useParams();
@@ -161,9 +163,12 @@ export function PartyPage() {
         <div className="message-feed">
           {messagesQuery.data?.messages.map((message) => (
             <article className="message-card" key={message.id}>
-              <header>
-                <strong>{message.author.display_name}</strong>
-                <span className="muted">{formatTimestamp(message.created_at)}</span>
+              <header className="message-header">
+                <UserIdentity
+                  user={message.author}
+                  size="sm"
+                  subtitle={formatTimestamp(message.created_at)}
+                />
               </header>
               <p>{message.body}</p>
             </article>
@@ -200,6 +205,9 @@ export function PartyPage() {
             {isInParty
               ? "Join voice to publish your mic and stay connected while you move around the site."
               : "Jump straight into voice. Green Ring will join the party first, then connect your mic."}
+          </p>
+          <p className="tiny-copy">
+            Mic cleanup is enabled with echo cancellation, noise suppression, and voice isolation when the browser supports it.
           </p>
 
           <div className="party-actions">
@@ -248,8 +256,9 @@ export function PartyPage() {
           <div className="party-members stack">
             {party.active_members.length > 0
               ? party.active_members.map((member) => (
-                  <span className="member-chip" key={member.user.id}>
-                    {member.user.display_name}
+                  <span className="member-chip member-chip--avatar" key={member.user.id}>
+                    <UserAvatar user={member.user} size="xs" />
+                    <span>{member.user.display_name}</span>
                   </span>
                 ))
               : <span className="member-chip idle">Nobody has joined yet</span>}

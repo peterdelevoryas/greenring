@@ -50,6 +50,13 @@ export function useRealtime(
           return;
         }
 
+        if (event.type === "profile.updated") {
+          queryClient.invalidateQueries({ queryKey: ["session"] });
+          queryClient.invalidateQueries({ queryKey: ["home"] });
+          queryClient.invalidateQueries({ queryKey: ["messages"] });
+          return;
+        }
+
         if (
           event.type === "invite.created" ||
           event.type === "invite.revoked"

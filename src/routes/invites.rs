@@ -47,7 +47,8 @@ async fn list_invites(
             u.id AS redeemed_user_id,
             u.username AS redeemed_username,
             u.display_name AS redeemed_display_name,
-            u.role AS redeemed_role
+            u.role AS redeemed_role,
+            u.avatar_key AS redeemed_avatar_key
         FROM invites i
         LEFT JOIN users u ON u.id = i.redeemed_by
         ORDER BY i.created_at DESC
@@ -195,7 +196,7 @@ async fn redeem_invite(
         r#"
         INSERT INTO users (id, username, display_name, password_hash, role)
         VALUES ($1, $2, $3, $4, 'member')
-        RETURNING id, username, display_name, role
+        RETURNING id, username, display_name, role, avatar_key
         "#,
     )
     .bind(Uuid::new_v4())

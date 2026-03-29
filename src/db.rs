@@ -46,7 +46,7 @@ pub async fn bootstrap_owner(
         r#"
         INSERT INTO users (id, username, display_name, password_hash, role)
         VALUES ($1, $2, $3, $4, 'owner')
-        RETURNING id, username, display_name, role
+        RETURNING id, username, display_name, role, avatar_key
         "#,
     )
     .bind(uuid::Uuid::new_v4())

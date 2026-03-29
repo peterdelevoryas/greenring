@@ -1,5 +1,6 @@
 mod app;
 mod auth;
+mod avatars;
 mod config;
 mod db;
 mod error;

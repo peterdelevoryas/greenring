@@ -24,7 +24,7 @@ pub async fn authenticate_user(
     let username = normalize_username(username);
     let user = sqlx::query_as::<_, LoginUserRecord>(
         r#"
-        SELECT id, username, display_name, password_hash, role
+        SELECT id, username, display_name, password_hash, role, avatar_key
         FROM users
         WHERE username = $1
         "#,
@@ -85,7 +85,7 @@ pub async fn maybe_user_from_jar(
 
     let user = sqlx::query_as::<_, UserRecord>(
         r#"
-        SELECT u.id, u.username, u.display_name, u.role
+        SELECT u.id, u.username, u.display_name, u.role, u.avatar_key
         FROM sessions s
         JOIN users u ON u.id = s.user_id
         WHERE s.id = $1 AND s.expires_at > NOW()

@@ -22,8 +22,9 @@ impl Config {
             .parse()
             .context("APP_BIND_ADDR must be a valid socket address")?;
 
-        let database_url = env::var("DATABASE_URL")
-            .context("DATABASE_URL is required, e.g. postgres://postgres:postgres@localhost:5432/greenring")?;
+        let database_url = env::var("DATABASE_URL").context(
+            "DATABASE_URL is required, e.g. postgres://postgres:postgres@localhost:5432/greenring",
+        )?;
 
         let cors_origin =
             env::var("APP_CORS_ORIGIN").unwrap_or_else(|_| "http://localhost:5173".to_string());

@@ -4,7 +4,10 @@ use chrono::{DateTime, Utc};
 use tokio::sync::{RwLock, broadcast};
 use uuid::Uuid;
 
-use crate::{config::Config, models::api::ServerEvent};
+use crate::{
+    config::Config,
+    models::api::{PresenceStatus, ServerEvent},
+};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -37,19 +40,17 @@ struct PresenceEntry {
     connection_count: usize,
     active_party_id: Option<Uuid>,
     joined_at: Option<DateTime<Utc>>,
+    status: PresenceStatus,
 }
 
 #[derive(Debug, Clone)]
 pub struct PresenceSnapshot {
-    pub online: bool,
-    pub active_party_id: Option<Uuid>,
-    pub joined_at: Option<DateTime<Utc>>,
+    pub status: PresenceStatus,
 }
 
 #[derive(Debug, Clone)]
 pub struct DisconnectOutcome {
     pub presence: PresenceSnapshot,
-    pub previous_active_party_id: Option<Uuid>,
     pub became_offline: bool,
 }
 
@@ -60,8 +61,10 @@ impl PresenceStore {
             connection_count: 0,
             active_party_id: None,
             joined_at: None,
+            status: PresenceStatus::Online,
         });
         entry.connection_count += 1;
+        entry.status = PresenceStatus::Online;
 
         snapshot(entry)
     }
@@ -71,16 +74,12 @@ impl PresenceStore {
         let Some(entry) = guard.get_mut(&user_id) else {
             return DisconnectOutcome {
                 presence: PresenceSnapshot {
-                    online: false,
-                    active_party_id: None,
-                    joined_at: None,
+                    status: PresenceStatus::Offline,
                 },
-                previous_active_party_id: None,
                 became_offline: false,
             };
         };
 
-        let previous_active_party_id = entry.active_party_id;
         if entry.connection_count > 0 {
             entry.connection_count -= 1;
         }
@@ -90,17 +89,13 @@ impl PresenceStore {
             guard.remove(&user_id);
             DisconnectOutcome {
                 presence: PresenceSnapshot {
-                    online: false,
-                    active_party_id: None,
-                    joined_at: None,
+                    status: PresenceStatus::Offline,
                 },
-                previous_active_party_id,
                 became_offline: true,
             }
         } else {
             DisconnectOutcome {
                 presence: snapshot(entry),
-                previous_active_party_id,
                 became_offline: false,
             }
         }
@@ -116,10 +111,29 @@ impl PresenceStore {
             connection_count: 0,
             active_party_id: None,
             joined_at: None,
+            status: PresenceStatus::Online,
         });
 
         entry.active_party_id = active_party_id;
         entry.joined_at = active_party_id.map(|_| Utc::now());
+        if entry.connection_count > 0 {
+            entry.status = PresenceStatus::Online;
+        }
+
+        snapshot(entry)
+    }
+
+    pub async fn set_status(&self, user_id: Uuid, status: PresenceStatus) -> PresenceSnapshot {
+        let mut guard = self.inner.write().await;
+        let Some(entry) = guard.get_mut(&user_id) else {
+            return PresenceSnapshot {
+                status: PresenceStatus::Offline,
+            };
+        };
+
+        if entry.connection_count > 0 {
+            entry.status = status;
+        }
 
         snapshot(entry)
     }
@@ -142,9 +156,11 @@ fn snapshot(entry: &PresenceEntry) -> PresenceSnapshot {
     let online = entry.connection_count > 0;
 
     PresenceSnapshot {
-        online,
-        active_party_id: if online { entry.active_party_id } else { None },
-        joined_at: if online { entry.joined_at } else { None },
+        status: if online {
+            entry.status.clone()
+        } else {
+            PresenceStatus::Offline
+        },
     }
 }
 
@@ -160,15 +176,36 @@ mod tests {
         let party_id = Uuid::new_v4();
 
         let initial = store.connect(user_id).await;
-        assert!(initial.online);
-        assert_eq!(initial.active_party_id, None);
+        assert_eq!(initial.status, crate::models::api::PresenceStatus::Online);
 
         let with_party = store.set_active_party(user_id, Some(party_id)).await;
-        assert_eq!(with_party.active_party_id, Some(party_id));
+        assert_eq!(
+            with_party.status,
+            crate::models::api::PresenceStatus::Online
+        );
 
         let disconnect = store.disconnect(user_id).await;
         assert!(disconnect.became_offline);
-        assert_eq!(disconnect.previous_active_party_id, Some(party_id));
-        assert!(!disconnect.presence.online);
+        assert_eq!(
+            disconnect.presence.status,
+            crate::models::api::PresenceStatus::Offline
+        );
+    }
+
+    #[tokio::test]
+    async fn presence_tracks_away_status_for_connected_users() {
+        let store = PresenceStore::default();
+        let user_id = Uuid::new_v4();
+
+        store.connect(user_id).await;
+        let away = store
+            .set_status(user_id, crate::models::api::PresenceStatus::Away)
+            .await;
+        assert_eq!(away.status, crate::models::api::PresenceStatus::Away);
+
+        let online = store
+            .set_status(user_id, crate::models::api::PresenceStatus::Online)
+            .await;
+        assert_eq!(online.status, crate::models::api::PresenceStatus::Online);
     }
 }
